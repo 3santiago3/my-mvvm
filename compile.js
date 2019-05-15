@@ -103,13 +103,44 @@ compileUtil = {
     const updateFn = this.updater['textUpdater']
     const value = this.getTextVal(vm, expr)
 
+    // {{ a }} {{ b }}
+    expr.replace(/\{\{([^}]+)\}\}/g, (...arguments) => {
+      new Watcher(vm, arguments[1], (newValue) => {
+        updateFn && updateFn(node, this.getTextVal(vm, expr))
+      })
+    })
+
     updateFn && updateFn(node, value)
+  },
+
+  setVal(vm, expr, value) {
+    // [message, value]
+    expr = expr.split('.')
+
+    return expr.reduce((prev, next, currentIndex) => {
+      if (currentIndex === expr.length - 1) {
+        return prev[next] = value
+      }
+
+      return prev[next]
+    }, vm.$data)
   },
 
   // 输入框处理
   model(node, vm, expr) {
     const updateFn = this.updater['modelUpdater']
     
+    // 监控，数据变化了，调用这个 watcher 的 callback
+    new Watcher(vm, expr, (newValue) => {
+      updateFn && updateFn(node, this.getVal(vm, expr))
+    })
+
+    node.addEventListener('input', (e) => {
+      const newValue = e.target.value
+
+      this.setVal(vm, expr, newValue)
+    })
+
     // message.value => [message, value] => vm.$data.message.a
     updateFn && updateFn(node, this.getVal(vm, expr))
   },
